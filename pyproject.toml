@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ai-spend-watcher"
-version = "0.1.0"
+version = "0.2.0"
 description = "Track your AI API spending across providers from the command line"
 readme = "README.md"
 license = {text = "MIT"}

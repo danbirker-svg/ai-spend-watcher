@@ -1,20 +1,25 @@
-# AI Spend Watcher 💸
+# AI Spend Watcher 💸 + 🛡️
 
-Track your AI API spending across providers from the command line.
+Track your AI API spending **and service trust** from the command line.
 
-**Primary provider: [OpenRouter](https://openrouter.ai)** — monitor your generation
-costs, credit usage, and model breakdowns with a single command.
+**Primary provider: [OpenRouter](https://openrouter.ai)** — monitor generation costs, credit usage, and model breakdowns. **Plus: the AI Trust Dashboard** — track paid AI services (ChatGPT, Claude, Manus, Cursor, etc.) for outages, billing issues, and reliability. Because a $400/mo AI tool that silently fails isn't just expensive — it's a liability.
 
 ## Features
 
+### 💸 Spend Tracking
 - **`spendwatch daily`** — Today's spend broken down by model
 - **`spendwatch total`** — Total spend across any timeframe
 - **`spendwatch alert`** — Get alerted when spend exceeds a budget limit
 - **`spendwatch models`** — Cost-per-model breakdown with percentages
 - **`spendwatch account`** — View OpenRouter credits and rate limits
-- **`spendwatch cache`** — View or clear local cache
-- Offline viewing with local JSON cache
-- Beautiful terminal output with [Rich](https://github.com/Textualize/rich)
+
+### 🛡️ AI Trust Dashboard (NEW in v0.2)
+- **`spendwatch trust check`** — Full health check on all your AI services (status pages, incidents, trust scores)
+- **`spendwatch trust add <service>`** — Start tracking any AI service
+- **`spendwatch trust costs`** — Total monthly AI subscription spend
+- **`spendwatch trust incident`** — Log when a service fails or overcharges
+- **Trust scores (1-10)** — Based on status page transparency, uptime, and incident history
+- **9 known services** — ChatGPT, Claude, Manus AI, Gemini, Perplexity, Cursor, Codex CLI, Claude Code, Hermes Agent
 
 ## Installation
 
@@ -36,131 +41,119 @@ pip install -e .
 spendwatch init
 ```
 
-This creates `~/.spendwatch/config.toml` with a default template.
-
 ### 2. Configure your API key
-
-Either set the environment variable:
 
 ```bash
 export OPENROUTER_API_KEY="sk-or-v1-..."
 ```
 
-Or edit the config file:
+Or edit `~/.spendwatch/config.toml`.
 
-```toml
-# ~/.spendwatch/config.toml
-[openrouter]
-api_key = "sk-or-v1-..."
-```
-
-### 3. Check your spending
+### 3. Check spending
 
 ```bash
-# Today's spend by model
-spendwatch daily
+spendwatch daily          # Today's spend by model
+spendwatch total          # Last 30 days
+spendwatch alert --limit 5.00  # Budget alert
+spendwatch models         # Cost per model
+spendwatch account        # Credits & rate limits
+```
 
-# Total spend last 30 days
-spendwatch total
+### 4. Check AI service trust
 
-# Set a budget alert
-spendwatch alert --limit 5.00
+```bash
+spendwatch trust list     # See all known services
+spendwatch trust add manus --tier pro   # Track Manus AI ($400/mo)
+spendwatch trust check    # Full trust dashboard
+```
 
-# Cost per model
-spendwatch models
+## AI Trust Dashboard
 
-# Account info
-spendwatch account
+```bash
+# Add services to track
+spendwatch trust add chatgpt
+spendwatch trust add claude
+spendwatch trust add manus --tier pro
+spendwatch trust add cursor
+spendwatch trust add perplexity
+
+# Run a full health check
+spendwatch trust check
+```
+
+Example output:
+
+```
+🛡️  AI Trust Dashboard
+Monthly subscription spend: $460.00  |  Services tracked: 5  |  Avg trust score: 7.2/10
+
+⚠ AT RISK: Manus AI
+
+Tracked AI Services
+╭──────────────────┬──────────────┬─────────┬───────┬─────────────────┬──────────────╮
+│ Service          │ Status       │ Cost/mo │ Trust │ Incidents (30d) │ Transparency │
+├──────────────────┼──────────────┼─────────┼───────┼─────────────────┼──────────────┤
+│ Manus AI         │ ◐ DEGRADED   │ $400.00 │ 2/10  │ 3               │ 📊 Public    │
+│ ChatGPT / OpenAI │ ● UP         │  $20.00 │ 9/10  │ —               │ 📊 Public    │
+│ Claude /Anthropic│ ● UP         │  $20.00 │ 9/10  │ —               │ 📊 Public    │
+╰──────────────────┴──────────────┴─────────┴───────┴─────────────────┴──────────────╯
+```
+
+### Log an incident
+
+```bash
+spendwatch trust incident manus "Charged $400 but agent execution failed silently"
+spendwatch trust incident cursor "Composer kept applying changes to wrong file"
+```
+
+### Track total subscription costs
+
+```bash
+spendwatch trust costs
+# Shows: ChatGPT $20 + Claude $20 + Manus $400 = $440/mo
+# Plus API costs tracked via spendwatch daily/total
 ```
 
 ## Usage
 
 ```
-Usage: spendwatch [OPTIONS] COMMAND [ARGS]...
-
-  AI Spend Watcher — Track your AI API spending across providers.
-
 Commands:
-  daily    Show today's spend by model
-  total    Show total spend across a timeframe
-  alert    Alert if spend exceeds a specified limit
-  models   Show cost breakdown by model
-  account  Show OpenRouter account info (credits, rate limits)
-  init     Initialize config directory and default config file
-  cache    Show or clear cache
+  account     Show OpenRouter account info (credits, rate limits)
+  alert       Alert if spend exceeds a specified limit
+  cache       Show or clear cache
+  daily       Show today's spend by model
+  init        Initialize config directory and default config file
+  models      Show cost breakdown by model
+  total       Show total spend across a timeframe
+  trust       AI Trust Dashboard — monitor service health, reliability, and billing fairness
+
+Trust Commands:
+  add         Add an AI service to your trust tracking
+  check       Run a full trust check on all tracked services
+  costs       Show total monthly AI subscription spend
+  incident    Log an incident for a tracked service
+  list        List all known AI services available to track
+  remove      Stop tracking a service
 ```
 
-### `spendwatch daily`
+## Known Services
 
-```bash
-# Today's spend
-spendwatch daily
-
-# Specific date
-spendwatch daily --date 2026-06-01
-
-# Force fresh fetch (skip cache)
-spendwatch daily --no-cache
-```
-
-### `spendwatch total`
-
-```bash
-# Last 30 days
-spendwatch total
-
-# Custom range
-spendwatch total --from 2026-01-01 --to 2026-06-09
-
-# Shorthand
-spendwatch total -f 2026-06-01 -t 2026-06-09
-```
-
-### `spendwatch alert`
-
-```bash
-# Alert if today's spend exceeds $5
-spendwatch alert --limit 5.00
-
-# Check specific date
-spendwatch alert --limit 10.00 --date 2026-06-01
-
-# Exits with code 1 if limit exceeded (useful in scripts)
-spendwatch alert --limit 5.00 && echo "Budget OK"
-```
-
-### `spendwatch models`
-
-```bash
-# All models in last 30 days
-spendwatch models
-
-# Custom range
-spendwatch models --from 2026-01-01 --to 2026-06-09
-```
-
-### `spendwatch account`
-
-```bash
-# Show credits and rate limits
-spendwatch account
-```
-
-### `spendwatch cache`
-
-```bash
-# Show cache stats
-spendwatch cache
-
-# Clear cache
-spendwatch cache --clear
-```
+| Service | Category | Tiers |
+|---------|----------|-------|
+| ChatGPT / OpenAI | Chat | Plus ($20), Pro ($200) |
+| Claude / Anthropic | Chat | Pro ($20), Max ($100), Team ($25) |
+| Manus AI | Agent | Starter ($40), Pro ($400) |
+| Gemini / Google | Chat | Advanced ($20) |
+| Perplexity | Search | Pro ($20) |
+| Cursor | IDE | Pro ($20) |
+| OpenAI Codex CLI | Agent | Pay-per-use |
+| Claude Code | Agent | Pay-per-use |
+| Hermes Agent | Agent | Self-hosted |
 
 ## Configuration
 
-Full config options in `~/.spendwatch/config.toml`:
-
 ```toml
+# ~/.spendwatch/config.toml
 [openrouter]
 api_key = "sk-or-v1-..."
 
@@ -172,32 +165,28 @@ monthly_limit = 50.00
 currency = "USD"
 ```
 
-| Option | Env Var | Description |
-|--------|---------|-------------|
-| `openrouter.api_key` | `OPENROUTER_API_KEY` | Your OpenRouter API key |
-| `budget.daily_limit` | — | Daily budget for reference |
-| `budget.monthly_limit` | — | Monthly budget for reference |
-| `display.currency` | — | Currency display (default: USD) |
+## Why Track AI Service Trust?
 
-Environment variables take precedence over config file values.
+The Manus AI chargeback situation (June 2026) is the canary in the coal mine. People are paying $200-400/mo for AI tools that silently fail, degrade, or overcharge. Most users don't track this systematically — they just get frustrated and leave.
+
+**AI Spend Watcher + Trust Dashboard** gives you:
+- **Spend awareness** — Know exactly what you're paying across all AI tools
+- **Reliability tracking** — Catch services that degrade before you waste more money
+- **Trust scores** — Quantify which services are actually reliable
+- **Incident history** — Data when you need to dispute charges or switch providers
 
 ## Requirements
 
 - Python 3.11+
-- An [OpenRouter](https://openrouter.ai) account and API key
+- An [OpenRouter](https://openrouter.ai) account and API key (for spend tracking)
 
 ## Development
 
 ```bash
-# Clone and install dev dependencies
 git clone https://github.com/danbirker-svg/ai-spend-watcher.git
 cd ai-spend-watcher
 pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Run tests with coverage
+pytest              # 27 tests
 pytest --cov=spendwatch
 ```
 

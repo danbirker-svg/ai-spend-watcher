@@ -5,6 +5,8 @@ from datetime import date, timedelta
 
 import click
 from rich.console import Console
+from rich.table import Table
+from rich import box
 
 from . import __version__
 from .config import load_config, ensure_config_dir
@@ -15,8 +17,20 @@ from .reporter import (
     report_models,
     report_alert,
     report_credit_info,
+    report_trust_dashboard,
+    report_service_list,
+    report_trust_added,
+    report_trust_removed,
 )
 from .cache import clear_cache, cache_stats
+from .trust import (
+    check_all_services,
+    add_service,
+    remove_service,
+    log_incident,
+    list_known_services,
+    load_services,
+)
 
 console = Console()
 
@@ -165,6 +179,135 @@ def cache(ctx: click.Context, clear: bool) -> None:
         console.print(f"Cache directory: [cyan]{stats['cache_dir']}[/cyan]")
         console.print(f"Cached files: [bold]{stats['files']}[/bold]")
         console.print(f"Total size: [bold]{stats['total_size_human']}[/bold]")
+
+
+# ── Trust Dashboard commands ────────────────────────────────────────
+
+@main.group()
+def trust() -> None:
+    """AI Trust Dashboard — monitor service health, reliability, and billing fairness.
+
+    Track paid AI services (ChatGPT, Claude, Manus, etc.) for outages,
+    billing issues, and transparency. Don't just track spend — track trust.
+    """
+    pass
+
+
+@trust.command(name="check")
+@click.pass_context
+def trust_check(ctx: click.Context) -> None:
+    """Run a full trust check on all tracked services.
+
+    Checks status pages, counts recent incidents, and calculates
+    a trust score (1-10) for each service based on transparency,
+    reliability, and billing fairness.
+    """
+    console.print("[bold blue]🛡️  Running AI Trust check...[/bold blue]")
+    console.print()
+
+    with console.status("[bold green]Checking service status pages..."):
+        report = check_all_services()
+
+    report_trust_dashboard(report)
+
+
+@trust.command(name="add")
+@click.argument("service_id")
+@click.option("--tier", "-t", default="pro", help="Subscription tier (e.g. pro, plus, starter)")
+@click.pass_context
+def trust_add(ctx: click.Context, service_id: str, tier: str) -> None:
+    """Add an AI service to your trust tracking.
+
+    SERVICE_ID is the service slug (e.g. chatgpt, claude, manus, cursor, perplexity).
+    Use 'spendwatch trust list' to see all known services.
+    """
+    known = {s["id"]: s for s in list_known_services()}
+
+    if service_id not in known:
+        console.print(f"[red]Unknown service: {service_id}[/red]")
+        console.print(f"Known services: {', '.join(known)}")
+        return
+
+    added = add_service(service_id, tier)
+    if added:
+        report_trust_added(service_id, known[service_id]["name"])
+    else:
+        console.print(f"[yellow]Already tracking {service_id}[/yellow]")
+
+
+@trust.command(name="remove")
+@click.argument("service_id")
+@click.pass_context
+def trust_remove(ctx: click.Context, service_id: str) -> None:
+    """Stop tracking a service."""
+    known = {s["id"]: s for s in list_known_services()}
+    name = known.get(service_id, {}).get("name", service_id)
+
+    removed = remove_service(service_id)
+    if removed:
+        report_trust_removed(service_id, name)
+    else:
+        console.print(f"[yellow]{service_id} is not being tracked[/yellow]")
+
+
+@trust.command(name="list")
+@click.pass_context
+def trust_list(ctx: click.Context) -> None:
+    """List all known AI services available to track."""
+    known = list_known_services()
+    report_service_list(known)
+
+
+@trust.command(name="incident")
+@click.argument("service_id")
+@click.argument("description")
+@click.pass_context
+def trust_incident(ctx: click.Context, service_id: str, description: str) -> None:
+    """Log an incident for a tracked service.
+
+    Example: spendwatch trust incident manus "Charged $400 but agent execution failed silently"
+    """
+    log_incident(service_id, description)
+    console.print(f"[green]✓[/green] Incident logged for [bold]{service_id}[/bold]")
+    console.print(f"   [dim]{description}[/dim]")
+
+
+@trust.command(name="costs")
+@click.pass_context
+def trust_costs(ctx: click.Context) -> None:
+    """Show your total monthly AI subscription spend across all tracked services."""
+    services = load_services()
+    if not services:
+        console.print("[yellow]No services tracked yet.[/yellow] Run [cyan]spendwatch trust add <service>[/cyan]")
+        return
+
+    total = sum(s.get("monthly_cost", 0) for s in services.values())
+
+    table = Table(title="Monthly AI Subscription Costs", box=box.ROUNDED)
+    table.add_column("Service", style="cyan")
+    table.add_column("Tier", style="dim")
+    table.add_column("Cost/mo", justify="right", style="green")
+
+    from .trust import KNOWN_SERVICES
+
+    for sid, cfg in sorted(services.items()):
+        info = KNOWN_SERVICES.get(sid, {})
+        table.add_row(
+            info.get("name", sid),
+            cfg.get("subscription", "?"),
+            f"${cfg['monthly_cost']:.2f}",
+        )
+
+    table.add_section()
+    table.add_row(
+        "[bold]TOTAL[/bold]",
+        "",
+        f"[bold green]${total:.2f}[/bold green]",
+    )
+
+    console.print(table)
+    console.print()
+    console.print(f"[dim]Plus API costs (tracked via spendwatch daily/total)[/dim]")
 
 
 if __name__ == "__main__":

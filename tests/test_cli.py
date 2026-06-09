@@ -18,7 +18,7 @@ def runner():
 
 @pytest.fixture
 def mock_config():
-    return Config(api_key="sk-or-v1-test-key")
+    return Config(api_key="***")
 
 
 @pytest.fixture
@@ -59,6 +59,52 @@ def test_help(runner):
     assert "account" in result.output
     assert "init" in result.output
     assert "cache" in result.output
+    assert "trust" in result.output
+
+
+def test_trust_help(runner):
+    result = runner.invoke(main, ["trust", "--help"])
+    assert result.exit_code == 0
+    assert "check" in result.output
+    assert "add" in result.output
+    assert "list" in result.output
+
+
+def test_trust_list(runner):
+    with patch("spendwatch.cli.list_known_services") as mock_list:
+        mock_list.return_value = [
+            {"id": "chatgpt", "name": "ChatGPT / OpenAI", "url": "https://chatgpt.com",
+             "category": "chat", "status_url": "https://status.openai.com",
+             "tiers": {"plus": 20, "pro": 200}, "tracked": True},
+        ]
+        result = runner.invoke(main, ["trust", "list"])
+        assert result.exit_code == 0
+        assert "ChatGPT" in result.output
+
+
+def test_trust_add_unknown(runner):
+    with patch("spendwatch.cli.list_known_services") as mock_list:
+        mock_list.return_value = []
+        result = runner.invoke(main, ["trust", "add", "nonexistent"])
+        assert "Unknown service" in result.output
+
+
+def test_trust_costs_empty(runner):
+    with patch("spendwatch.cli.load_services") as mock_load:
+        mock_load.return_value = {}
+        result = runner.invoke(main, ["trust", "costs"])
+        assert "No services tracked yet" in result.output
+
+
+def test_trust_costs_with_services(runner):
+    with patch("spendwatch.cli.load_services") as mock_load:
+        mock_load.return_value = {
+            "chatgpt": {"subscription": "plus", "monthly_cost": 20},
+            "claude": {"subscription": "pro", "monthly_cost": 20},
+        }
+        result = runner.invoke(main, ["trust", "costs"])
+        assert result.exit_code == 0
+        assert "$40.00" in result.output
 
 
 def test_init(runner):
