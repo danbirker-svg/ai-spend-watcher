@@ -20,7 +20,12 @@ def clear_cache() -> int:
 def cache_stats() -> dict[str, Any]:
     """Get cache statistics."""
     if not CACHE_DIR.exists():
-        return {"files": 0, "total_size_bytes": 0}
+        return {
+            "files": 0,
+            "total_size_bytes": 0,
+            "total_size_human": _human_size(0),
+            "cache_dir": str(CACHE_DIR),
+        }
 
     files = list(CACHE_DIR.glob("*.json"))
     total_size = sum(f.stat().st_size for f in files)
