@@ -62,8 +62,9 @@ def load_config() -> Config:
 
             display = data.get("display", {})
             config.currency = display.get("currency", "USD")
-        except Exception:
-            pass  # Silently fall back to defaults on parse error
+        except Exception as e:
+            import sys
+            print(f"spendwatch: warning: failed to parse config ({e}); using defaults", file=sys.stderr)
 
     return config
 
